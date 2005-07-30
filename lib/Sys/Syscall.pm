@@ -2,17 +2,19 @@
 
 package Sys::Syscall;
 use strict;
-use POSIX ();
+use POSIX qw(ENOSYS);
 
 require Exporter;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 $VERSION     = "0.1";
 @ISA         = qw(Exporter);
-@EXPORT_OK   = qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
+@EXPORT_OK   = qw(sendfile epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
                   EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD);
 %EXPORT_TAGS = (epoll => [qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
-                             EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD)]);
+                             EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD)],
+                sendfile => [qw(sendfile)],
+                );
 
 use constant EPOLLIN       => 1;
 use constant EPOLLOUT      => 4;
@@ -42,10 +44,9 @@ our (
      $SYS_epoll_create,
      $SYS_epoll_ctl,
      $SYS_epoll_wait,
-     $SYS_sendfile
+     $SYS_sendfile,
+     $SYS_readahead,
      );
-
-sub epoll_defined { return $SYS_epoll_create ? 1 : 0; }
 
 if ($^O eq "linux") {
     # whether the machine requires 64-bit numbers to be on 8-byte
@@ -57,29 +58,50 @@ if ($^O eq "linux") {
         $SYS_epoll_ctl    = 255;
         $SYS_epoll_wait   = 256;
         $SYS_sendfile     = 187;  # or 64: 239
+        $SYS_readahead    = 225;
     } elsif ($machine eq "x86_64") {
         $SYS_epoll_create = 213;
         $SYS_epoll_ctl    = 233;
         $SYS_epoll_wait   = 232;
         $SYS_sendfile     = 187;  # or 64: 239
+        $SYS_readahead    = 225;
     } elsif ($machine eq "ppc64") {
         $SYS_epoll_create = 236;
         $SYS_epoll_ctl    = 237;
         $SYS_epoll_wait   = 238;
         $SYS_sendfile     = 186;  # (sys32_sendfile).  sys32_sendfile64=226  (64 bit processes: sys_sendfile64=186)
+        $SYS_readahead    = 191;  # both 32-bit and 64-bit vesions
         $u64_mod_8        = 1;
     } elsif ($machine eq "ppc") {
         $SYS_epoll_create = 236;
         $SYS_epoll_ctl    = 237;
         $SYS_epoll_wait   = 238;
         $SYS_sendfile     = 186;  # sys_sendfile64=226
+        $SYS_readahead    = 191;
         $u64_mod_8        = 1;
     } elsif ($machine eq "ia64") {
         $SYS_epoll_create = 1243;
         $SYS_epoll_ctl    = 1244;
         $SYS_epoll_wait   = 1245;
         $SYS_sendfile     = 1187;
+        $SYS_readahead    = 1216;
         $u64_mod_8        = 1;
+    } elsif ($machine eq "alpha") {
+        # natural alignment, ints are 32-bits
+        $SYS_sendfile     = 370;  # (sys_sendfile64)
+        $SYS_epoll_create = 407;
+        $SYS_epoll_ctl    = 408;
+        $SYS_epoll_wait   = 409;
+        $SYS_readahead    = 379;
+        $u64_mod_8        = 1;
+    } else {
+        # as a last resort, try using the *.ph files which may not
+        # exist or may be wrong
+        _load_syscall();
+        $SYS_epoll_create = eval { &SYS_epoll_create; } || 0;
+        $SYS_epoll_ctl    = eval { &SYS_epoll_ctl;    } || 0;
+        $SYS_epoll_wait   = eval { &SYS_epoll_wait;   } || 0;
+        $SYS_readahead    = eval { &SYS_readahead;    } || 0;
     }
 
     if ($u64_mod_8) {
@@ -91,20 +113,24 @@ if ($^O eq "linux") {
     }
 }
 
+############################################################################
+# sendfile functions
+############################################################################
+
 unless ($SYS_sendfile) {
     _load_syscall();
     $SYS_sendfile = eval { &SYS_sendfile; } || 0;
 }
 
-*sendfile = $SYS_sendfile ? \&_sendfile_wrapper : \&_sendfile_noimpl;
-
-sub _sendfile_noimpl {
-    die "sendfile syscall number not found.  Run h2ph?";
-}
+sub sendfile_defined { return $SYS_sendfile ? 1 : 0; }
 
 # C: ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 # Perl:  sendfile($write_fd, $read_fd, $max_count) --> $actually_sent
-sub _sendfile_wrapper {
+sub sendfile {
+    unless ($SYS_sendfile) {
+        $! = ENOSYS;
+        return -1;
+    }
     return syscall(
                    $SYS_sendfile,
                    $_[0] + 0,  # fd
@@ -114,7 +140,12 @@ sub _sendfile_wrapper {
                    );
 }
 
-# epoll_create wrapper
+############################################################################
+# epoll functions
+############################################################################
+
+sub epoll_defined { return $SYS_epoll_create ? 1 : 0; }
+
 # ARGS: (size) -- but in modern Linux 2.6, the
 # size doesn't even matter (radix tree now, not hash)
 sub epoll_create {

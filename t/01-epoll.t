@@ -41,10 +41,12 @@ my $port = 60000;
 my $ip   = '127.0.0.1';
 my $listen = IO::Socket::INET->new(Listen    => 5,
                                    LocalAddr => $ip,
+                                   ReuseAddr => 1,
                                    LocalPort => $port,
                                    Proto     => 'tcp');
 my $listen2 = IO::Socket::INET->new(Listen    => 5,
                                     LocalAddr => $ip,
+                                    ReuseAddr => 1,
                                     LocalPort => $port+1,
                                     Proto     => 'tcp');
 ok($listen, "made temp listening socket");
