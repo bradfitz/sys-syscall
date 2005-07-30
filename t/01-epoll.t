@@ -7,7 +7,7 @@ use Socket qw(PF_INET IPPROTO_TCP SOCK_STREAM);
 
 my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
 
-if ($^O ne 'linux' || $release =~ /^2\.[01234]\./) {
+if ($^O ne 'linux' || $release =~ /^2\.[01234]\b/) {
     non_linux_26();
 }
 
@@ -73,8 +73,7 @@ is(epoll_ctl($epfd, EPOLL_CTL_DEL, fileno($listen), 0), 0, "epoll_ctl del stdout
 ok(epoll_ctl($epfd, EPOLL_CTL_MOD, fileno(STDOUT), 0), "epoll_ctl on bad fd");
 
 sub non_linux_26 {
-    plan tests => 1;
-    ok(! Sys::Syscall::epoll_defined());
+    plan skip_all => "test good only for Linux 2.6+";
     exit 0;
 }
 
