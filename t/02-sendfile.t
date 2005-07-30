@@ -21,7 +21,7 @@ my $content = "I am a test file!\n" x (5 * 1024);
 my $clen    = length($content);
 
 END {
-    kill 9, $child;
+    kill 9, $child if $child;
 }
 
 # make child to listen and receive
