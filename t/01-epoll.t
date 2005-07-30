@@ -7,9 +7,7 @@ use Socket qw(PF_INET IPPROTO_TCP SOCK_STREAM);
 
 my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
 
-print "v=$version\n";
-
-if ($^O ne 'linux' || $version =~ /^2\.[01234]\./) {
+if ($^O ne 'linux' || $release =~ /^2\.[01234]\./) {
     non_linux_26();
 }
 
