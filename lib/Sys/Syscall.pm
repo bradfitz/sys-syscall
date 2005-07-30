@@ -1,9 +1,26 @@
+# LICENSE: You're free to distribute this under the same terms as Perl itself.
+
 package Sys::Syscall;
 use strict;
 use POSIX ();
 
-use vars qw($VERSION);
-$VERSION = "0.1";
+require Exporter;
+use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
+
+$VERSION     = "0.1";
+@ISA         = qw(Exporter);
+@EXPORT_OK   = qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
+                  EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD);
+%EXPORT_TAGS = (epoll => [qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
+                             EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD)]);
+
+use constant EPOLLIN       => 1;
+use constant EPOLLOUT      => 4;
+use constant EPOLLERR      => 8;
+use constant EPOLLHUP      => 16;
+use constant EPOLL_CTL_ADD => 1;
+use constant EPOLL_CTL_DEL => 2;
+use constant EPOLL_CTL_MOD => 3;
 
 our $loaded_syscall = 0;
 
@@ -102,7 +119,7 @@ sub _sendfile_wrapper {
 # size doesn't even matter (radix tree now, not hash)
 sub epoll_create {
     return -1 unless defined $SYS_epoll_create;
-    my $epfd = eval { syscall($SYS_epoll_create, $_[0]+0 || 100) };
+    my $epfd = eval { syscall($SYS_epoll_create, ($_[0]||100)+0) };
     return -1 if $@;
     return $epfd;
 }
@@ -153,3 +170,36 @@ sub epoll_wait_mod8 {
 
 
 1;
+__END__
+
+=head1 NAME
+
+Sys::Syscall - access system calls that Perl doesn't normally provide access to
+
+=head1 SYNOPSIS
+
+  use Sys::Syscall;
+
+=head1 DESCRIPTION
+
+Use epoll, sendfile, from Perl.  Future: more.
+
+=head1 COPYRIGHT
+
+This module is Copyright (c) 2005 Six Apart, Ltd.
+
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+If you need more liberal licensing terms, please contact the
+maintainer.
+
+=head1 WARRANTY
+
+This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.
+
+=head1 AUTHORS
+
+Brad Fitzpatrick <brad@danga.com>
+
