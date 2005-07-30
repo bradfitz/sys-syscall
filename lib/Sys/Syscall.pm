@@ -2,7 +2,7 @@
 
 package Sys::Syscall;
 use strict;
-use POSIX qw(ENOSYS);
+use POSIX qw(ENOSYS SEEK_CUR);
 
 require Exporter;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
@@ -34,6 +34,7 @@ sub _load_syscall {
     };
     $clean->(); # don't trust modules before us
     my $rv = eval { require 'syscall.ph'; 1 } || eval { require 'sys/syscall.ph'; 1 };
+    print "O=$^O, Bang: $@\n" unless $rv;
     $clean->(); # don't require modules after us trust us
     return $rv;
 }
@@ -120,17 +121,29 @@ if ($^O eq "linux") {
 unless ($SYS_sendfile) {
     _load_syscall();
     $SYS_sendfile = eval { &SYS_sendfile; } || 0;
+    unless ($SYS_sendfile) {
+	print "boom: $@\n";
+    }
 }
 
 sub sendfile_defined { return $SYS_sendfile ? 1 : 0; }
 
+if ($^O eq "linux" && $SYS_sendfile) {
+    *sendfile = \&sendfile_linux;
+} elsif ($^O eq "freebsd" && $SYS_sendfile) {
+    *sendfile = \&sendfile_freebsd;
+} else {
+    *sendfile = \&sendfile_noimpl;
+}
+
+sub sendfile_noimpl {
+    $! = ENOSYS;
+    return -1;
+}
+
 # C: ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 # Perl:  sendfile($write_fd, $read_fd, $max_count) --> $actually_sent
-sub sendfile {
-    unless ($SYS_sendfile) {
-        $! = ENOSYS;
-        return -1;
-    }
+sub sendfile_linux {
     return syscall(
                    $SYS_sendfile,
                    $_[0] + 0,  # fd
@@ -139,6 +152,22 @@ sub sendfile {
                    $_[2] + 0   # count
                    );
 }
+
+sub sendfile_freebsd {
+    my $offset = POSIX::lseek($_[1]+0, SEEK_CUR, 0);
+    my $set = syscall(
+		      $SYS_sendfile,
+		      $_[0] + 0,  # fd
+		      $_[1] + 0,  # fd
+		      $offset,
+		      $_[2] + 0,  # count
+		      0,
+		      0,
+		      0);
+    return $set if $set <= 0;
+    POSIX::lseek($_[1]+0, SEEK_CUR, $set);
+}
+
 
 ############################################################################
 # epoll functions
