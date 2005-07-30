@@ -2,6 +2,9 @@ package Sys::Syscall;
 use strict;
 use POSIX ();
 
+use vars qw($VERSION);
+$VERSION = "0.1";
+
 our $loaded_syscall = 0;
 
 sub _load_syscall {
@@ -18,8 +21,6 @@ sub _load_syscall {
 
 our ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
 
-our $epoll_defined = 0;  # set if epoll is recognized
-
 our (
      $SYS_epoll_create,
      $SYS_epoll_ctl,
@@ -27,11 +28,12 @@ our (
      $SYS_sendfile
      );
 
+sub epoll_defined { return $SYS_epoll_create ? 1 : 0; }
+
 if ($^O eq "linux") {
     # whether the machine requires 64-bit numbers to be on 8-byte
     # boundaries.
     my $u64_mod_8 = 0;
-    $epoll_defined = 1;
 
     if ($machine =~ m/^i[3456]86$/) {
         $SYS_epoll_create = 254;
@@ -82,13 +84,16 @@ unless ($SYS_sendfile) {
 sub _sendfile_noimpl {
     die "sendfile syscall number not found.  Run h2ph?";
 }
+
+# C: ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
+# Perl:  sendfile($write_fd, $read_fd, $max_count) --> $actually_sent
 sub _sendfile_wrapper {
     return syscall(
                    $SYS_sendfile,
                    $_[0] + 0,  # fd
                    $_[1] + 0,  # fd
-                   $_[2] + 0,  # offset (NULL means kernel moves offset)
-                   $_[3] + 0   # count
+                   0,          # don't keep track of offset.  callers can lseek and keep track.
+                   $_[2] + 0   # count
                    );
 }
 
