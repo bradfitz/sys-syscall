@@ -27,6 +27,7 @@ use constant EPOLL_CTL_MOD => 3;
 our $loaded_syscall = 0;
 
 sub _load_syscall {
+    # props to Gaal for this!
     return if $loaded_syscall++;
     my $clean = sub {
         delete @INC{qw<syscall.ph asm/unistd.ph bits/syscall.ph
@@ -34,7 +35,6 @@ sub _load_syscall {
     };
     $clean->(); # don't trust modules before us
     my $rv = eval { require 'syscall.ph'; 1 } || eval { require 'sys/syscall.ph'; 1 };
-    print "O=$^O, Bang: $@\n" unless $rv;
     $clean->(); # don't require modules after us trust us
     return $rv;
 }
@@ -64,8 +64,8 @@ if ($^O eq "linux") {
         $SYS_epoll_create = 213;
         $SYS_epoll_ctl    = 233;
         $SYS_epoll_wait   = 232;
-        $SYS_sendfile     = 187;  # or 64: 239
-        $SYS_readahead    = 225;
+        $SYS_sendfile     =  40;
+        $SYS_readahead    = 187;
     } elsif ($machine eq "ppc64") {
         $SYS_epoll_create = 236;
         $SYS_epoll_ctl    = 237;
@@ -115,7 +115,7 @@ if ($^O eq "linux") {
 }
 
 elsif ($^O eq "freebsd") {
-    $SYS_sendfile = 336;
+    $SYS_sendfile = 393;  # old is 336
 }
 
 ############################################################################
@@ -125,9 +125,6 @@ elsif ($^O eq "freebsd") {
 unless ($SYS_sendfile) {
     _load_syscall();
     $SYS_sendfile = eval { &SYS_sendfile; } || 0;
-    unless ($SYS_sendfile) {
-	print "boom: $@\n";
-    }
 }
 
 sub sendfile_defined { return $SYS_sendfile ? 1 : 0; }
@@ -158,18 +155,23 @@ sub sendfile_linux {
 }
 
 sub sendfile_freebsd {
-    my $offset = POSIX::lseek($_[1]+0, SEEK_CUR, 0);
-    my $set = syscall(
-		      $SYS_sendfile,
-		      $_[0] + 0,  # fd
-		      $_[1] + 0,  # fd
-		      $offset,
-		      $_[2] + 0,  # count
-		      0,
-		      0,
-		      0);
-    return $set if $set <= 0;
+    my $offset = POSIX::lseek($_[1]+0, 0, SEEK_CUR) + 0;
+    my $ct = $_[2] + 0;
+    my $sbytes_buf = "\0" x 8;
+    my $rv = syscall(
+                     $SYS_sendfile,
+                     $_[1] + 0,   # fd     (from)
+                     $_[0] + 0,   # socket (to)
+                     $offset,
+                     $ct,
+                     0,           # struct sf_hdtr *hdtr
+                     $sbytes_buf, # off_t *sbytes
+                     0);          # flags
+    return $rv if $rv < 0;
+
+    my $set = unpack("L", $sbytes_buf);
     POSIX::lseek($_[1]+0, SEEK_CUR, $set);
+    return $set;
 }
 
 
