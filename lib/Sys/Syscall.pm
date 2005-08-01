@@ -9,8 +9,7 @@ use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 $VERSION     = "0.1";
 @ISA         = qw(Exporter);
-@EXPORT_OK   = qw(sendfile epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
-                  EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD);
+@EXPORT_OK   = qw(sendfile epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD);
 %EXPORT_TAGS = (epoll => [qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
                              EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD)],
                 sendfile => [qw(sendfile)],
@@ -115,7 +114,10 @@ if ($^O eq "linux") {
 }
 
 elsif ($^O eq "freebsd") {
-    $SYS_sendfile = 393;  # old is 336
+    if ($ENV{FREEBSD_SENDFILE}) {
+        # this is still buggy and in development
+        $SYS_sendfile = 393;  # old is 336
+    }
 }
 
 ############################################################################
@@ -168,6 +170,7 @@ sub sendfile_freebsd {
                      $sbytes_buf, # off_t *sbytes
                      0);          # flags
     return $rv if $rv < 0;
+
 
     my $set = unpack("L", $sbytes_buf);
     POSIX::lseek($_[1]+0, SEEK_CUR, $set);
@@ -248,7 +251,57 @@ Sys::Syscall - access system calls that Perl doesn't normally provide access to
 
 =head1 DESCRIPTION
 
-Use epoll, sendfile, from Perl.  Future: more.
+Use epoll, sendfile, from Perl.  Mostly Linux-only support now, but
+more syscalls/OSes planned for future.
+
+=head1 Exports
+
+Nothing by default.
+
+May export: sendfile epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP EPOLL_CTL_ADD  EPOLL_CTL_DEL EPOLL_CTL_MOD
+
+Export tags:  :epoll and :sendfile
+
+=head1 Functions
+
+=head2 epoll support
+
+=over 4
+
+=item $ok = epoll_defined()
+
+Returns true if epoll might be available.  (caller must still test with epoll_create)
+
+=item $epfd = epoll_create([ $start_size ])
+
+Create a new epoll filedescriptor.  Returns -1 if epoll isn't available.
+
+=item $rv = epoll_ctl($epfd, $op, $fd, $events)
+
+See manpage for epoll_ctl
+
+=item $count = epoll_wait($epfd, $max_events, $timeout, $arrayref)
+
+See manpage for epoll_wait.  $arrayref is an arrayref to be modified
+with the items returned.  The values put into $arrayref are arrayrefs
+of [$fd, $state].
+
+=back
+
+=head2 sendfile support
+
+=over 4
+
+=item $ok = sendfile_defined()
+
+Returns true if sendfile should work on this operating system.
+
+=item $sent = sendfile($sock_fd, $file_fd, $max_send)
+
+Sends up to $max_send bytes from $file_fd to $sock_fd.  Returns bytes
+actually sent, or -1 on error.
+
+=back
 
 =head1 COPYRIGHT
 
