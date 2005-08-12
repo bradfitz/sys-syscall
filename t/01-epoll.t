@@ -20,20 +20,29 @@ ok($epfd >= 0, "did epoll_create");
 ok(EPOLLHUP && EPOLLIN && EPOLLOUT && EPOLLERR,     "epoll masks");
 ok(EPOLL_CTL_ADD && EPOLL_CTL_DEL && EPOLL_CTL_MOD, "epoll_ctl constants");
 
-is(epoll_ctl($epfd, EPOLL_CTL_ADD, fileno(STDOUT), EPOLLOUT), 0, "epoll_ctl stdout EPOLLOUT");
+my $udp_sock = IO::Socket::INET->new(PeerPort  => 9999,
+				     PeerAddr  => inet_ntoa(INADDR_BROADCAST),
+				     Proto     => 'udp',
+				     LocalAddr => '127.0.0.1',
+				     Broadcast => 1 )
+    or die "Can't bind : $@\n";
+
+my $tempfd = fileno($udp_sock);
+
+is(epoll_ctl($epfd, EPOLL_CTL_ADD, $tempfd, EPOLLOUT), 0, "epoll_ctl udp socket EPOLLOUT");
 
 my $events = [];
 is(epoll_wait($epfd, 1, 500, $events), 1, "epoll_wait");
 my $ev = $events->[0];
 ok(ref $ev eq "ARRAY", "got an array in our event");
 $ev ||= [];
-is($ev->[0], fileno(STDOUT), "event is stdout");
-is($ev->[1], EPOLLOUT, "stdout is writable");
+is($ev->[0], $tempfd, "event is stdout");
+is($ev->[1], EPOLLOUT, "udp socket is writable");
 
-is(epoll_ctl($epfd, EPOLL_CTL_MOD, fileno(STDOUT), EPOLLIN), 0, "epoll_ctl mod stdout readable?");
+is(epoll_ctl($epfd, EPOLL_CTL_MOD, $tempfd, EPOLLIN), 0, "watch reads on udp socket");
 my ($t1, $t2);
 $t1 = time();
-is(epoll_wait($epfd, 1, 1000, $events), 0, "epoll_wait");
+is(epoll_wait($epfd, 1, 1000, $events), 0, "get no events");
 $t2 = time();
 ok($t2 > $t1 && $t2 < ($t1 + 3), "took a second");
 
@@ -72,7 +81,7 @@ ok(($events->[0][0] == fileno($listen) && $events->[1][0] == fileno($listen2)) |
    ($events->[1][0] == fileno($listen) && $events->[0][0] == fileno($listen2)), "got both");
 
 is(epoll_ctl($epfd, EPOLL_CTL_DEL, fileno($listen), 0), 0, "epoll_ctl del stdout");
-ok(epoll_ctl($epfd, EPOLL_CTL_MOD, fileno(STDOUT), 0), "epoll_ctl on bad fd");
+ok(epoll_ctl($epfd, EPOLL_CTL_MOD, 9999, 0), "epoll_ctl on bad fd");
 
 sub non_linux_26 {
     plan skip_all => "test good only for Linux 2.6+";
