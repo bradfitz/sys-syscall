@@ -314,6 +314,12 @@ License or the Artistic License, as specified in the Perl README file.
 If you need more liberal licensing terms, please contact the
 maintainer.
 
+=head1 Contributing
+
+Want to contribute?  See:
+
+  L<http://contributing.appspot.com/sys-syscall>
+
 =head1 WARRANTY
 
 This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.
