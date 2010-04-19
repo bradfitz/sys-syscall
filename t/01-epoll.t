@@ -46,18 +46,18 @@ is(epoll_wait($epfd, 1, 1000, $events), 0, "get no events");
 $t2 = time();
 ok($t2 > $t1 && $t2 < ($t1 + 3), "took a second");
 
-my $port = 60000;
 my $ip   = '127.0.0.1';
 my $listen = IO::Socket::INET->new(Listen    => 5,
                                    LocalAddr => $ip,
                                    ReuseAddr => 1,
-                                   LocalPort => $port,
                                    Proto     => 'tcp');
+my $listen_port = $listen->sockport;
 my $listen2 = IO::Socket::INET->new(Listen    => 5,
                                     LocalAddr => $ip,
                                     ReuseAddr => 1,
-                                    LocalPort => $port+1,
                                     Proto     => 'tcp');
+my $listen2_port = $listen2->sockport;
+diag "listening on $listen_port and $listen2_port";
 ok($listen, "made temp listening socket");
 ok(fileno($listen), "has fileno");
 
@@ -66,8 +66,8 @@ socket $sock, PF_INET, SOCK_STREAM, IPPROTO_TCP;
 socket $sock2, PF_INET, SOCK_STREAM, IPPROTO_TCP;
 IO::Handle::blocking($sock, 0);
 IO::Handle::blocking($sock2, 0);
-connect $sock, Socket::sockaddr_in($port, Socket::inet_aton($ip));
-connect $sock2, Socket::sockaddr_in($port+1, Socket::inet_aton($ip));
+connect $sock, Socket::sockaddr_in($listen_port, Socket::inet_aton($ip));
+connect $sock2, Socket::sockaddr_in($listen2_port, Socket::inet_aton($ip));
 select undef, undef, undef, 0.25;
 
 my $lifd1 = fileno($listen);
