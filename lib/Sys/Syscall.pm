@@ -94,6 +94,14 @@ if ($^O eq "linux") {
         $SYS_epoll_wait   = 409;
         $SYS_readahead    = 379;
         $u64_mod_8        = 1;
+    } elsif ($machine =~ m/arm(v\d+)?.*l/) {
+        # ARM OABI
+        $SYS_epoll_create = 250;
+        $SYS_epoll_ctl    = 251;
+        $SYS_epoll_wait   = 252;
+        $SYS_sendfile     = 187;
+        $SYS_readahead    = 225;
+        $u64_mod_8        = 1;
     } else {
         # as a last resort, try using the *.ph files which may not
         # exist or may be wrong
