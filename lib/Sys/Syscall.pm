@@ -7,7 +7,7 @@ use POSIX qw(ENOSYS SEEK_CUR);
 require Exporter;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $VERSION);
 
-$VERSION     = "0.1";
+$VERSION     = "0.25";
 @ISA         = qw(Exporter);
 @EXPORT_OK   = qw(sendfile epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP EPOLL_CTL_ADD EPOLL_CTL_DEL EPOLL_CTL_MOD);
 %EXPORT_TAGS = (epoll => [qw(epoll_ctl epoll_create epoll_wait EPOLLIN EPOLLOUT EPOLLERR EPOLLHUP
