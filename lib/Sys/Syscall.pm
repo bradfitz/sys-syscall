@@ -70,7 +70,7 @@ if ($^O eq "linux") {
         $SYS_epoll_ctl    = 237;
         $SYS_epoll_wait   = 238;
         $SYS_sendfile     = 186;  # (sys32_sendfile).  sys32_sendfile64=226  (64 bit processes: sys_sendfile64=186)
-        $SYS_readahead    = 191;  # both 32-bit and 64-bit vesions
+        $SYS_readahead    = 191;  # both 32-bit and 64-bit versions
         $u64_mod_8        = 1;
     } elsif ($machine eq "ppc") {
         $SYS_epoll_create = 236;
