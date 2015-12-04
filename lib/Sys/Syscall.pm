@@ -48,6 +48,8 @@ our (
      $SYS_readahead,
      );
 
+our $no_deprecated = 0;
+
 if ($^O eq "linux") {
     # whether the machine requires 64-bit numbers to be on 8-byte
     # boundaries.
@@ -101,6 +103,14 @@ if ($^O eq "linux") {
         $SYS_epoll_wait   = 409;
         $SYS_readahead    = 379;
         $u64_mod_8        = 1;
+    } elsif ($machine eq "aarch64") {
+        $SYS_epoll_create = 20;  # (sys_epoll_create1)
+        $SYS_epoll_ctl    = 21;
+        $SYS_epoll_wait   = 22;  # (sys_epoll_pwait)
+        $SYS_sendfile     = 71;  # (sys_sendfile64)
+        $SYS_readahead    = 213;
+        $u64_mod_8        = 1;
+        $no_deprecated    = 1;
     } elsif ($machine =~ m/arm(v\d+)?.*l/) {
         # ARM OABI
         $SYS_epoll_create = 250;
@@ -203,7 +213,7 @@ sub epoll_defined { return $SYS_epoll_create ? 1 : 0; }
 # size doesn't even matter (radix tree now, not hash)
 sub epoll_create {
     return -1 unless defined $SYS_epoll_create;
-    my $epfd = eval { syscall($SYS_epoll_create, ($_[0]||100)+0) };
+    my $epfd = eval { syscall($SYS_epoll_create, $no_deprecated ? 0 : ($_[0]||100)+0) };
     return -1 if $@;
     return $epfd;
 }
@@ -241,7 +251,12 @@ sub epoll_wait_mod8 {
         $epoll_wait_size = $_[1];
         $epoll_wait_events = "\0" x 16 x $epoll_wait_size;
     }
-    my $ct = syscall($SYS_epoll_wait, $_[0]+0, $epoll_wait_events, $_[1]+0, $_[2]+0);
+    my $ct;
+    if ($no_deprecated) {
+        $ct = syscall($SYS_epoll_wait, $_[0]+0, $epoll_wait_events, $_[1]+0, $_[2]+0, undef);
+    } else {
+        $ct = syscall($SYS_epoll_wait, $_[0]+0, $epoll_wait_events, $_[1]+0, $_[2]+0);
+    }
     for ($_ = 0; $_ < $ct; $_++) {
         # 16 byte epoll_event structs, with format:
         #    4 byte mask [idx 1]
