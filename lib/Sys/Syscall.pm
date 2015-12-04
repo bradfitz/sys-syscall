@@ -79,6 +79,13 @@ if ($^O eq "linux") {
         $SYS_sendfile     = 186;  # sys_sendfile64=226
         $SYS_readahead    = 191;
         $u64_mod_8        = 1;
+    } elsif ($machine =~ m/^s390/) {
+        $SYS_epoll_create = 249;
+        $SYS_epoll_ctl    = 250;
+        $SYS_epoll_wait   = 251;
+        $SYS_sendfile     = 187;  # sys_sendfile64=223
+        $SYS_readahead    = 222;
+        $u64_mod_8        = 1;
     } elsif ($machine eq "ia64") {
         $SYS_epoll_create = 1243;
         $SYS_epoll_ctl    = 1244;
