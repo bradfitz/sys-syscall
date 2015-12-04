@@ -65,7 +65,7 @@ if ($^O eq "linux") {
         $SYS_epoll_wait   = 232;
         $SYS_sendfile     =  40;
         $SYS_readahead    = 187;
-    } elsif ($machine eq "ppc64") {
+    } elsif ($machine =~ m/^ppc64/) {
         $SYS_epoll_create = 236;
         $SYS_epoll_ctl    = 237;
         $SYS_epoll_wait   = 238;
